@@ -1,0 +1,29 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C / compiled binaries
+*.o
+*.obj
+*.exe
+nexus-manager
+sys_stat
+
+# Virtual environments
+.venv/
+env/
+venv/
+ENV/
+
+# Duplicate video folder
+demo_video/
+
+# IDE & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log

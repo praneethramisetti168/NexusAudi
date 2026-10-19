@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NexusAudit | Continuous Compliance & Telemetry Engine</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header>
+  <div class="logo-container">
+    <div class="logo-icon">&#x2699;</div>
+    <div class="logo-text">Nexus<span>Audit</span></div>
+    <span class="badge-version">v2.4.0 Enterprise</span>
+  </div>
+  <div class="header-links">
+    <a href="/docs" target="_blank">API Documentation</a>
+    <a href="/api/v1/health" target="_blank">Health Status</a>
+  </div>
+</header>
+
+<main class="container">
+  <!-- Top Metrics -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Compliance Index</div>
+      <div class="stat-value green">{{ stats.compliance_score }}%</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Monitored Cloud Nodes</div>
+      <div class="stat-value cyan">{{ stats.monitored_nodes }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Open Findings</div>
+      <div class="stat-value yellow">{{ stats.open_findings }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Last Automated Scan</div>
+      <div class="stat-value" style="font-size: 1.25rem;">{{ stats.last_scan }}</div>
+    </div>
+  </div>
+
+  <!-- Interactive Dev/Audit Tools -->
+  <div class="grid-two-col">
+    <!-- Webhook Delivery Tester -->
+    <div class="card">
+      <div class="card-title">
+        <span>&#x1F4E1;</span> Webhook Reachability Diagnostic
+      </div>
+      <div class="card-desc">
+        Validate remote notification webhooks and SIEM callback endpoints. Note: Egress policies restrict local subnet connectivity.
+      </div>
+
+      <form id="webhookForm">
+        <div class="form-group">
+          <label for="webhookUrl">Webhook Callback URL</label>
+          <input type="text" id="webhookUrl" placeholder="https://alert-manager.internal.corp/webhook" required>
+        </div>
+        <button type="submit" id="btnTestWebhook">Dispatch Test Ping</button>
+      </form>
+
+      <div class="result-box" id="webhookResult"></div>
+    </div>
+
+    <!-- Custom Formula Evaluator -->
+    <div class="card">
+      <div class="card-title">
+        <span>&#x1F4CA;</span> Telemetry Formula Aggregator
+      </div>
+      <div class="card-desc">
+        Calculate real-time telemetry metrics using the corporate AST sandbox. Requires valid Auditor cryptographic bearer credentials.
+      </div>
+
+      <form id="formulaForm">
+        <div class="form-group">
+          <label for="auditorToken">Bearer Token (JWT)</label>
+          <input type="text" id="auditorToken" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6..." required>
+        </div>
+        <div class="form-group">
+          <label for="formulaInput">Metric Calculation Formula</label>
+          <input type="text" id="formulaInput" value="helper.compliance_score(total, total - failed)" required>
+        </div>
+        <button type="submit" id="btnEvalFormula">Evaluate Expression</button>
+      </form>
+
+      <div class="result-box" id="formulaResult"></div>
+    </div>
+  </div>
+
+  <!-- Recent Audit Stream -->
+  <div class="card">
+    <div class="card-title">
+      <span>&#x1F5C4;</span> Real-Time Audit Telemetry Stream
+    </div>
+    <div class="card-desc">
+      Immutable event logs ingested from cluster nodes and cloud infrastructure.
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Audit ID</th>
+          <th>Timestamp</th>
+          <th>Actor</th>
+          <th>Action</th>
+          <th>Resource</th>
+          <th>Outcome</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td><code>{{ log.id }}</code></td>
+          <td>{{ log.timestamp }}</td>
+          <td>{{ log.actor }}</td>
+          <td><strong>{{ log.action }}</strong></td>
+          <td><code>{{ log.resource }}</code></td>
+          <td>
+            <span class="status-badge {% if log.status == 'SUCCESS' %}success{% elif log.status == 'DENIED' %}denied{% else %}flagged{% endif %}">
+              {{ log.status }}
+            </span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</main>
+
+<script>
+  // Webhook Test Handler
+  document.getElementById("webhookForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const url = document.getElementById("webhookUrl").value;
+    const resBox = document.getElementById("webhookResult");
+    resBox.style.display = "block";
+    resBox.textContent = "Dispatching request...";
+
+    try {
+      const resp = await fetch("/api/v1/webhook/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: url })
+      });
+      const data = await resp.json();
+      resBox.textContent = JSON.stringify(data, null, 2);
+    } catch (err) {
+      resBox.textContent = "Network Error: " + err;
+    }
+  });
+
+  // Formula Evaluator Handler
+  document.getElementById("formulaForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const token = document.getElementById("auditorToken").value.trim();
+    const formula = document.getElementById("formulaInput").value;
+    const resBox = document.getElementById("formulaResult");
+    resBox.style.display = "block";
+    resBox.textContent = "Submitting formula to sandbox...";
+
+    try {
+      const resp = await fetch("/api/v1/audit/export/custom-formula", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + token
+        },
+        body: JSON.stringify({ formula: formula })
+      });
+      const data = await resp.json();
+      resBox.textContent = JSON.stringify(data, null, 2);
+    } catch (err) {
+      resBox.textContent = "Network Error: " + err;
+    }
+  });
+</script>
+
+</body>
+</html>
